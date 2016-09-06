@@ -1,0 +1,343 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>My Second React App</title>
+<script src="https://npmcdn.com/react@15.3.1/dist/react.min.js"></script>
+<script src="https://npmcdn.com/react-dom@15.3.1/dist/react-dom.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.24/browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.js"></script>
+<link href="https://fonts.googleapis.com/css?family=Pacifico" rel="stylesheet">
+<script type="text/babel">
+
+var PRODUCTS = [
+	{name:"Magic Phone", cost:1299.99}, 
+	{name: "Jigsaw Puzzle", cost: 30.50}, 
+	{name: "Dummy Tab", cost: 999.99}, 
+	{name: ".50 Magnum", cost: 3699.99}, 
+	{name: "Salted Fish Cupcakes", cost: 3.50}, 
+	{name: "Century Egg Muffin", cost: 1.99}
+];
+
+var ProductRow = React.createClass({
+  propTypes: {
+    product: React.PropTypes.array.isRequired,
+  },
+  getInitialState: function() {
+  	return ({qty: 0});
+  },
+  handleRowClick: function() {
+    this.props.onSelect( this.props.product );
+    this.setState({qty: this.state.qty+1})
+  },
+  render: function() {
+    var name = this.props.product.name;
+	var cost = this.props.product.cost;
+
+	return (
+	  <tr id='product-row' onClick={this.handleRowClick}>
+		<td>{name} <span id='span-qty'>x{this.state.qty}</span></td>
+		<td>{cost.toFixed(2)}</td>
+	  </tr>
+	);
+  }
+});
+
+var ProductTable = React.createClass({
+  getInitialState: function() {
+  	return ({
+  	  productList: {}
+  	});
+  },
+  componentDidMount: function() {
+  	// set productList hashTable mapping: productName -> qty (0)
+  	var hashTable = {};
+  	for(var i=0; i<this.props.products.length; i++) {
+  		hashTable[this.props.products[i].name] = {
+  			qty: 0,
+  			cost: this.props.products[i].cost
+  		};
+  	}
+  	this.setState({productList: hashTable});  	
+  },
+  handleProductSelection: function(p) {
+	  var arr = this.state.productList;
+	  arr[p.name].qty++;
+	  this.setState({productList: arr});
+  },
+  render: function() {
+	  var rows =[];
+	  this.props.products.forEach(function(p) {
+		if(p.name.toLowerCase().indexOf(this.props.inputText.toLowerCase()) === -1) {
+			return;
+		}
+		
+		if( (this.props.inputFilterPurchase == true && this.state.productList[p.name].qty) > 0 || 
+		this.props.inputFilterPurchase == false)
+			rows.push(<ProductRow product={p} key={p.name} onSelect={this.handleProductSelection}/>);
+	  }.bind(this));
+	  
+      return (
+      	<div>
+	    <table>
+		  <thead>
+		    <tr>
+			  <th>Name</th>
+			  <th>Price</th>
+			</tr>
+		  </thead>
+		  <tbody>{rows}</tbody>
+		</table>
+
+		<BillInfo products={this.state.productList}
+		/>
+		</div>
+	  );
+  }
+});
+
+var BillInfo = React.createClass({
+  propType: {
+    total: React.PropTypes.number.isRequired
+  },
+  getInitialState: function() {
+  	return ({inputPromoText: "", hasFreeShipping: false, hasFreeShopping: false});
+  },
+  handleUserInput: function(inputPromoText) {
+  	if(inputPromoText === "freeshipping") {
+  		this.setState({hasFreeShipping: true});
+  	}
+  	else if (inputPromoText === "freeshopping") {
+  		this.setState({hasFreeShopping: true});	
+  	}
+	else  {
+		this.setState({hasFreeShopping: false, hasFreeShipping: false});	
+	}
+    this.setState({
+	  inputPromoText: inputPromoText
+	});
+  },
+  render: function() {
+  	var totalCost = 0;
+	var shippingCost = 0;
+	var serviceCost = 0;
+	var grandCost = 0;
+	
+	if(this.state.hasFreeShopping) {
+		totalCost = 0;
+	}
+	else {
+		for(var key in this.props.products) {
+	  		if(this.props.products.hasOwnProperty(key)) {
+	  			totalCost += this.props.products[key].cost * this.props.products[key].qty;
+	  		}
+	  	}
+	}
+	if(this.state.hasFreeShipping) {
+		shippingCost = 0;
+	}
+	else {
+		shippingCost = totalCost * 0.2;
+	}
+	
+	serviceCost = totalCost * 0.08;
+	grandCost = totalCost + shippingCost + serviceCost;
+	
+	totalCost = totalCost.toFixed(2);
+	shippingCost = shippingCost.toFixed(2);
+	serviceCost = serviceCost.toFixed(2);
+	grandCost = grandCost.toFixed(2);
+	
+    return (
+	  <div>
+	    <PromoCodeBar 
+			inputPromoText={this.state.inputPromoText} 
+			onUserInput={this.handleUserInput}
+		/>
+	    <p>Total: ${totalCost}</p>
+		<p>Service Charge (8%): ${serviceCost}</p>
+		<p>Shipping: ${shippingCost}</p>
+		<p>Grand Total: ${grandCost}</p>
+	  </div>
+	);
+  }
+});
+
+var PromoCodeBar = React.createClass({
+  handleChange: function() {
+    this.props.onUserInput(
+	  this.refs.promoTextInput.value
+	);
+  },
+  render: function() {
+    return(
+	  <form>
+	    Promo Code: 
+	    <input 
+			type="text" 
+			placeholder="Input Promo" 
+			value={this.props.inputPromoText}
+			ref="promoTextInput"
+			onChange={this.handleChange}
+		/>
+	  </form>
+	);
+  }
+})
+
+var SearchBar = React.createClass({
+  handleChange: function() {
+    this.props.onUserInput(
+	  this.refs.filterTextInput.value
+	);
+  },
+  render: function() {
+    return(
+	  <form>
+	    <input 
+			type="text" 
+			placeholder="Search for..." 
+			value={this.props.inputText}
+			ref="filterTextInput"
+			onChange={this.handleChange}
+		/> 
+	  </form>
+	);
+  }
+});
+
+var FilterCheckBox = React.createClass({
+  handleFilterPurchase: function() {
+    this.props.onUserFilterPurchase();
+  },
+  render: function() {
+    return (
+		<form>
+			<input 
+				type="checkbox" 
+				checked={this.props.inputFilterPurchase}
+				onChange={this.handleFilterPurchase}
+			/> Show My Purchases
+		</form>
+	);
+  }
+});
+
+var OrderButton = React.createClass({
+  handleClickOrder: function(e) {
+	alert("Order Placed");
+  },
+  render: function() {
+    return (
+	<div>
+		<form>
+			<button onClick={this.handleClickOrder}> Order Now </button>
+		</form>
+	</div>
+	); 
+  }
+});
+
+var ReactiveProductTable = React.createClass({
+  getInitialState: function() {
+    return {
+	  inputText: "",
+	  inputFilterPurchase: false
+	};
+  },
+  handleUserInput: function(inputText) {
+    this.setState({
+	  inputText: inputText
+	});
+  },
+  handleFilterPurchase: function() {
+    this.setState({
+	  inputFilterPurchase: !this.state.inputFilterPurchase
+	});
+  },
+  render: function() {
+    return (
+	  <div>
+	    <SearchBar 
+			inputText={this.state.inputText} 
+			onUserInput={this.handleUserInput}
+		/>
+		<FilterCheckBox 
+			onUserFilterPurchase={this.handleFilterPurchase}
+			checked={this.state.inputFilterPurchase}
+		/>
+	    <ProductTable 
+			inputFilterPurchase={this.state.inputFilterPurchase}
+			inputText={this.state.inputText} 
+			products={this.props.products} 
+		/>
+		<OrderButton
+			onUserClickOrder={this.handleUserClickOrder}
+		/>
+	  </div>
+	);
+  }
+});
+
+ReactDOM.render(<ReactiveProductTable products={PRODUCTS} />, document.getElementById("div1"));
+
+</script>
+
+<style type="text/css">
+html {
+  font-family: 'Pacifico', cursive;
+}
+
+footer {
+  font-size: 12px;
+  padding-top: 100px;
+}
+
+table {
+  background: linear-gradient(to left, rgb(118,161,191), rgb(47,121,191));
+}
+
+table, th, td {
+ border: 1px solid black;
+ border-collapse: collapse;
+ padding: 10px;
+}
+
+td button {
+  background-color: red;
+  border-radius: 25px;
+}
+
+td button:hover {
+  background-color: purple;
+  cursor: pointer;
+}
+
+#product-row {
+  cursor: pointer;
+}
+
+#product-row:hover {
+  background-color: rgb(175,215,255);
+}
+
+#span-qty {
+	font-size: 24px;
+}
+
+</style>
+
+</head>
+
+<body>
+<h1>Reactive Shopping List</h1> 
+<p>Select the items you wish to purchase</p> 
+<div id='div1'></div> 
+
+</body>
+
+<footer>
+  Copyright &#169 2016 Powered by Gas Fuel Machine
+</footer>
+
+</html>
